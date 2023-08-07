@@ -1,0 +1,41 @@
+name: terraform-automation
+
+on: [push]
+
+concurrency:
+    group: ${{ github.action == 'terraform-automation'}}
+
+
+jobs:
+    terraform_plan:
+        name: 'Terraform Plan'
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+            
+            - name: Setup GCP Service Account
+              uses: google-github-actions/setup-gcloud@v3
+              with:
+                version: latest
+                service_account_email: ${{ secrets.GCP_SA_EMAIL }}
+                service_account_key: ${{ secrets.GCP_SA_KEY }}
+                export_default_credentials: true
+
+            # Generates an execution plan for terraform
+            - name: Terraform Plan
+              working-directory: ./terraform
+              continue-on-error: true
+              run: |
+                terraform init
+                terraform plan -out "tf_plan" -input=false
+            
+            - name: Upload TF Plan
+              uses: actions/upload-artifact@v3
+              with: 
+                name: tf_plan
+                path: ./terraform/tf_plan
+                if-no-files-found: error
+                retention-days: 1
+
