@@ -2,6 +2,7 @@ terraform {
     backend "gcs" {
         bucket = "dev-us-west2-terraform-backend"
         prefix = "state"
+        credentials = "./creds.json"
     }
 }
 

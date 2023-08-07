@@ -6,55 +6,41 @@ concurrency:
     group: ${{ github.action == 'terraform-automation'}}
 
 
+env:
+    GCP_CREDS: "${{ secrets.GCP_SA_KEY }}"
+
+defaults:
+    run:
+        working-directory: ./terraform
+
 jobs:
     terraform:
         name: 'Terraform'
         runs-on: ubuntu-latest
 
-        permissions:
-            contents: 'read'
-            id-token: 'write'
-
         steps:
-            - name: Checkout
+            - name: checkout files
               uses: actions/checkout@v3
-            
-            - id: 'auth'
-              name: 'Authenticate to Google Cloud'
-              uses: 'google-github-actions/auth@v1'
-              with:
-                workload_identity_provider: 'projects/889393711958/locations/global/workloadIdentityPools/my-pool/providers/my-provider'
-                service_account: 'terraform-github@tfe-gcp-automation.iam.gserviceaccount.com'
-            
-            - uses: hashicorp/setup-terraform@v2
-              with: 
-                terraform_version: 1.4.0
-            
-            - id: fmt
-              name: Terraform fmt
-              working-directory: ./terraform
-              run: terraform fmt -check
-              continue-on-error: true
 
-            - id: init
-              name: Terraform init
-              working-directory: ./terraform
-              run: terraform init -input=false
-
-            - id: validate
-              name: Terraform validate
-              run: terraform validate -no-color
-
-            - id: plan
-              name: Terraform Plan
-              working-directory: ./terraform
-              run: terraform plan -no-color
-              continue-on-error: true
+            - name: Store file as secret
+              run: echo "$GCP_CREDS" >> creds.json
             
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v2
+
+            - name: Terraform init
+              id: init
+              run: terraform init
+            
+            - name: Terraform Plan
+              id: plan
+              run: terraform plan -input=false -no-color
+
             - name: Terraform Plan Status
               if: steps.plan.outcome == 'failure'
               run: exit 1
+            
+            - name: Terraform apply
+              id: apply
+              run: terraform apply -auto-approve -input=false -no-color
 
-            - name: Terraform Apply
-              working-directory: ./terraform
-              run: terraform apply -auto-approve -input=false
